@@ -1,0 +1,165 @@
+---
+description: API 통신 규칙 — apis.js 전용 사용, apiPaths 관리, 스토어 통합 API, 백엔드 요청사항 정리
+globs: **/*
+---
+
+# API 통신 규칙
+
+## 필수 규칙
+
+**프로젝트에서 모든 API 통신은 반드시 `src/utils/apis.js`의 `api` 객체만 사용해야 합니다.**
+
+### 금지 사항
+
+- ❌ `axios` 직접 import 및 사용 금지
+- ❌ `fetch` API 직접 사용 금지
+- ❌ 다른 HTTP 클라이언트 라이브러리 사용 금지
+- ❌ `api` 객체 외의 다른 방법으로 API 호출 금지
+
+### 허용 사항
+
+- ✅ `src/utils/apis.js`에서 `api` 객체 import 후 사용
+- ✅ `api.get()`, `api.post()`, `api.patch()`, `api.delete()` 메서드만 사용
+
+## Import 방법
+
+```javascript
+import api from '@/utils/apis';
+// 또는
+import { api } from '@/utils/apis';
+```
+
+## API 경로 관리 (apiPaths)
+
+**모든 API path와 base URI는 `src/utils/apiPaths.js`에서 한 곳으로 관리합니다.**
+
+- **경로 상수/함수**: `apiPaths.js`에서 도메인별로 export (auth, users, store, storeLogined, ecommerce, ecommerceLogined, admin, business 등)
+- **base URI**: `getBackendUri()` 사용 (환경변수 `NEXT_PUBLIC_BACKEND_URL` 또는 `NEXT_PUBLIC_API_URL` 반환)
+- **사용 예**: `path: users.profile`, `path: storeLogined.one(storeId)`, `path: ecommerceLogined.cartItem(foodId)`
+- **동적 경로**: 함수로 정의 (예: `storeLogined.favorite(storeId)`)
+
+```javascript
+import api from '@/utils/apis';
+import { users, storeLogined, getBackendUri } from '@/utils/apiPaths';
+
+// GET 예시
+const result = await api.get({
+  uri: getBackendUri(),
+  path: users.profile,
+  params: {}
+});
+
+// 동적 path 예시
+const result = await api.get({
+  uri: getBackendUri(),
+  path: storeLogined.one(storeId),
+  params: {}
+});
+```
+
+- 새 엔드포인트 추가 시 `apiPaths.js`에 상수 또는 함수를 추가한 뒤, 호출부에서는 해당 값을 사용합니다.
+
+## 사용법
+
+### 공통 규칙
+
+모든 API 메서드는 **객체 형태의 첫 번째 인자**를 필수로 받습니다:
+- `uri`: API 기본 URL (선택사항)
+- `path`: API 경로 (필수)
+- `params`: 쿼리 파라미터 (GET, DELETE에서 사용)
+- `data`: 요청 본문 데이터 (POST, PUT, PATCH에서 사용)
+
+두 번째 인자는 선택적 설정 객체입니다 (timeout, headers 등).
+
+### GET 요청
+
+```javascript
+// 기본 사용법
+const result = await api.get({
+  uri: 'http://api.example.com',
+  path: '/users',
+  params: { id: 123 }
+});
+
+// 추가 설정 포함
+const result = await api.get(
+  { uri: 'http://api.example.com', path: '/users', params: { id: 123 } },
+  { timeout: 5000 }
+);
+```
+
+### POST 요청
+
+```javascript
+// 기본 사용법
+const result = await api.post({
+  uri: 'http://api.example.com',
+  path: '/users',
+  data: { name: 'John', email: 'john@example.com' }
+});
+
+// 추가 설정 포함
+const result = await api.post(
+  { uri: 'http://api.example.com', path: '/users', data: { name: 'John' } },
+  { timeout: 5000 }
+);
+```
+
+### PUT 요청
+
+```javascript
+const result = await api.patch({
+  uri: 'http://api.example.com',
+  path: '/users/1',
+  data: { name: 'John Updated' }
+});
+```
+
+### PATCH 요청
+
+```javascript
+const result = await api.patch({
+  uri: 'http://api.example.com',
+  path: '/users/1',
+  data: { name: 'John Updated' }
+});
+```
+
+### DELETE 요청
+
+```javascript
+// 기본 사용법
+const result = await api.delete({
+  uri: 'http://api.example.com',
+  path: '/users/1'
+});
+
+// 쿼리 파라미터 포함
+const result = await api.delete({
+  uri: 'http://api.example.com',
+  path: '/users/1',
+  params: { force: true }
+});
+```
+
+## 에러 처리
+
+`api` 객체는 자동으로 에러를 처리하며, 에러 발생 시 `Promise.reject`를 반환합니다.
+
+```javascript
+try {
+  const result = await api.get({ uri: '...', path: '...' });
+  // 성공 처리
+} catch (error) {
+  // error.message에 에러 메시지가 포함됨
+  console.error('API 호출 실패:', error.message);
+}
+```
+
+## 적용 현황
+
+- **apiPaths**: `src/utils/apiPaths.js`에서 경로·getBackendUri() 관리.
+- **apis.js**: `uri` + `path` 조합 지원 (getBackendUri() + path 사용).
+- **lib/api**: authApi, productApi, vendorApi는 `api` + apiPaths 사용으로 이전 완료.
+- **ESLint**: `src/**/*.js`에서 `fetch` 호출 및 `axios` import 시 에러로 검출 (예외: `src/lib/api/axiosInstance.js`).
+- **미이전**: admin/partner/user/order-inquiry 등 일부 페이지·컴포넌트는 아직 `fetch` 사용. 동일 패턴(api + apiPaths)으로 교체하면 됨.

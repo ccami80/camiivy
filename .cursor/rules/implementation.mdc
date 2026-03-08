@@ -1,0 +1,20 @@
+---
+description: CAMI&IVY 프로젝트 구현 방식 제약. 모든 코드 작성 시 준수.
+globs: **/*
+---
+
+# 구현 방식 제약
+
+- **JavaScript 기준으로만 작성** (TypeScript 금지)
+- **Next.js App Router 구조 유지** + API Routes 사용
+- **Prisma ORM을 사용한 실제 DB 연동**
+- **MySQL 기준 스키마 설계** (로컬 개발은 SQLite 가능)
+- **관리자 페이지와 API Routes를 함께 구현**: 관리자 화면 추가 시 해당 API도 반드시 구현
+- **페이지와 API를 함께 구현**: 새 화면 추가 시 해당 API Route도 구현하고, 페이지에서 그 API를 호출해 실제 DB 데이터 사용
+- **UI만 있는 페이지, mock 데이터만 있는 구현은 허용하지 않음**: 실제 CRUD·실제 DB 연동 필수
+
+- **API 호출**: 클라이언트에서는 axios 직접 사용 금지. `src/utils/apis.js`의 `api.get/post/patch/delete`만 사용. (기존 `lib/api/*` 모듈과 병행 가능하나 신규 코드는 `@/utils/apis` 권장.)
+- **API 경로**: 자사 백엔드 API는 `src/app/api/`, 타사 API는 `src/app/api-etc/`, 프론트 자체해결 API는 `src/app/api-local/`, 목업 API는 `src/app/api-mock/` (목업 전용 폴더).
+- **API 통신 상세 규칙**: `.cursor/rules/api-communication.mdc` 참고 (apiPaths, 사용법, 스토어 통합 API, 백엔드 요청사항 정리 등).
+
+상세: `prd/05-구현-방식-제약.md` 참고. 스펙·아키텍처: `docs/speckit.constitution.md` 및 `.cursor/rules/tech-stack.mdc`, `architecture.mdc`.

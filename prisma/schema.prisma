@@ -1,0 +1,441 @@
+// CAMI & IVY - SQLite for local dev (no DB install needed)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("admins")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  phone        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  orders            Order[]
+  pets              Pet[]
+  reviews           Review[]
+  wishlists         Wishlist[]
+  productInquiries  ProductInquiry[]
+  oneToOneInquiries OneToOneInquiry[]
+
+  @@map("users")
+}
+
+model Partner {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String   @map("password_hash")
+  companyName    String   @map("company_name")
+  businessNumber String   @map("business_number")
+  contactName    String   @map("contact_name")
+  contactPhone   String   @map("contact_phone")
+  status         String   @default("PENDING")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("partners")
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  petType   String   @map("pet_type")
+  sortOrder Int      @default(0) @map("sort_order")
+  parentId  String?  @map("parent_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children  Category[] @relation("CategoryHierarchy")
+  products  Product[]
+  bestItems CategoryBestItem[]
+
+  @@map("categories")
+}
+
+model Product {
+  id                 String   @id @default(cuid())
+  partnerId          String   @map("partner_id")
+  name               String
+  modelName          String?  @map("model_name")   // 모델명
+  brand              String
+  petType            String   @map("pet_type")
+  categoryId         String   @map("category_id")
+  basePrice          Int      @map("base_price")
+  totalStock         Int      @default(0) @map("total_stock")
+  description        String?
+  detailContent      String?  @map("detail_content")
+  detailTemplateType String?  @map("detail_template_type")
+  shippingMethod     String?  @map("shipping_method")   // 배송 방법 (예: 택배, 퀵배송)
+  shippingPeriod     String?  @map("shipping_period")   // 배송 기간 (예: 주문 후 2~3일)
+  shippingNote       String?  @map("shipping_note")    // 배송 유의사항 (선택)
+  shippingFee        Int?     @map("shipping_fee")     // 배송비 (원)
+  manufacturer       String?  @map("manufacturer")  // 제조사/수입사
+  countryOfOrigin    String?  @map("country_of_origin")  // 제조국
+  returnAddress      String?  @map("return_address")     // 교환/반품주소
+  sizeOption         String?  @map("size_option")   // 사이즈 (예: S,M,L)
+  colorOption        String?  @map("color_option")  // 색상 (예: 빨강,네이비)
+  approvalStatus     String   @default("PENDING") @map("approval_status")
+  rejectionReason    String?  @map("rejection_reason")  // 반려 시 사유
+  displayOrder       Int?     @map("display_order")     // 관리자 설정 노출 순서 (작을수록 앞)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  category     Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  partner      Partner          @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  images       ProductImage[]
+  options      ProductOption[]
+  variants     ProductVariant[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  reviews      Review[]
+  wishlists    Wishlist[]
+  curationItems CurationItem[]
+  inquiries    ProductInquiry[]
+  recommendedBy ProductRecommended[] @relation("RecommendedBy")
+  recommendedFor ProductRecommended[] @relation("RecommendedFor")
+  categoryBestItems CategoryBestItem[]
+  homeSectionItems HomeSectionItem[]
+
+  @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  url       String
+  type      String   @default("main") // "main" = 상품 대표/갤러리, "detail" = 상세 설명 이미지
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+model ProductOption {
+  id        String  @id @default(cuid())
+  productId String  @map("product_id")
+  name      String
+  value     String
+  sortOrder Int     @default(0) @map("sort_order")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_options")
+}
+
+model ProductVariant {
+  id          String  @id @default(cuid())
+  productId   String  @map("product_id")
+  optionLabel String  @map("option_label")
+  quantity    Int     @default(0)
+  priceAdjust Int     @default(0) @map("price_adjust")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_variants")
+}
+
+// ========== 장바구니 (비회원: sessionId 기준) ==========
+
+model Cart {
+  id        String   @id @default(cuid())
+  sessionId String   @unique @map("session_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id         String   @id @default(cuid())
+  cartId     String   @map("cart_id")
+  productId  String   @map("product_id")
+  quantity   Int      @default(1)
+  optionLabel String? @map("option_label")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("cart_items")
+}
+
+// ========== 주문 ==========
+
+model Order {
+  id                 String    @id @default(cuid())
+  orderNumber        String    @unique @map("order_number")
+  userId             String?   @map("user_id")
+  status             String    @default("PAYMENT_PENDING") @map("status")
+  recipientName      String    @map("recipient_name")
+  recipientPhone     String    @map("recipient_phone")
+  recipientEmail     String    @map("recipient_email")
+  zipCode            String    @map("zip_code")
+  address            String
+  addressDetail      String?   @map("address_detail")
+  totalProductAmount Int       @map("total_product_amount")
+  shippingFee        Int       @default(0) @map("shipping_fee")
+  totalAmount        Int       @map("total_amount")
+  memo               String?   @map("memo")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  paidAt             DateTime? @map("paid_at")
+
+  user    User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items   OrderItem[]
+  inquiries OneToOneInquiry[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId      String   @map("order_id")
+  productId    String   @map("product_id")
+  productName  String   @map("product_name")
+  quantity     Int
+  unitPrice    Int      @map("unit_price")
+  optionLabel  String?  @map("option_label")
+  lineTotal    Int      @map("line_total")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  review  Review?
+
+  @@map("order_items")
+}
+
+// ========== 마이페이지 (회원) ==========
+
+model Pet {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  name      String
+  petType   String    @map("pet_type")
+  breed     String?
+  bodyType  String?   @map("body_type")
+  birthDate DateTime? @map("birth_date")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("pets")
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  productId   String   @map("product_id")
+  orderItemId String?  @unique @map("order_item_id")
+  rating      Int
+  content     String
+  bodyType    String?  @map("body_type")
+  petType     String?  @map("pet_type")
+  imageUrls   String?  @map("image_urls")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+
+  @@map("reviews")
+}
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("wishlists")
+}
+
+// ========== 메인 페이지 큐레이션·배너 ==========
+
+model Banner {
+  id          String   @id @default(cuid())
+  imageUrl    String   @map("image_url")
+  linkUrl     String?  @map("link_url")
+  title       String?  @map("title")
+  description String?  @map("description") // 메인 노출 문구 (예: 빌레로이앤보흐 독일 프리미엄 명품도자기...)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("banners")
+}
+
+model CurationItem {
+  id        String   @id @default(cuid())
+  productId String  @map("product_id")
+  sortOrder Int     @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("curation_items")
+}
+
+// 함께 구매하면 좋은 상품 (상품 상세 페이지용, 관리자 설정)
+model ProductRecommended {
+  id                   String   @id @default(cuid())
+  productId            String   @map("product_id")
+  recommendedProductId String   @map("recommended_product_id")
+  sortOrder            Int      @default(0) @map("sort_order")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  product            Product @relation("RecommendedBy", fields: [productId], references: [id], onDelete: Cascade)
+  recommendedProduct  Product @relation("RecommendedFor", fields: [recommendedProductId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, recommendedProductId])
+  @@map("product_recommended")
+}
+
+// 카테고리별 베스트 상품 (상품 상세 페이지용, 관리자 설정)
+model CategoryBestItem {
+  id         String   @id @default(cuid())
+  categoryId String   @map("category_id")
+  productId  String   @map("product_id")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, productId])
+  @@map("category_best_items")
+}
+
+// 메인 페이지 섹션 (신상품 베스트 / 베스트 상품)
+model HomeSectionItem {
+  id        String   @id @default(cuid())
+  section   String   @map("section")   // NEW_BEST | BEST
+  productId String   @map("product_id")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([section, productId])
+  @@map("home_section_items")
+}
+
+// ========== 사이트 설정 (키-값) ==========
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique @map("key")
+  value     String   @map("value")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
+// ========== 고객센터 (공지사항 / FAQ) ==========
+
+model Notice {
+  id        String   @id @default(cuid())
+  type      String   @default("안내") @map("type")   // 안내, 배송, 상품 등
+  title     String   @map("title")
+  content   String?  @map("content")   // 상세 내용 (선택)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("notices")
+}
+
+model Faq {
+  id        String   @id @default(cuid())
+  category  String   @map("category")   // order, delivery, cancel, account, etc
+  question  String   @map("question")
+  answer    String   @map("answer")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("faqs")
+}
+
+// ========== 1:1 문의 ==========
+// category: CUSTOMER_SERVICE = 고객센터 문의(관리자 답변), SELLER = 판매자 문의(입점업체 답변)
+
+model OneToOneInquiry {
+  id           String    @id @default(cuid())
+  userId       String?   @map("user_id")       // 로그인 회원 문의 시
+  category     String    @default("CUSTOMER_SERVICE") @map("category")  // CUSTOMER_SERVICE | SELLER
+  inquiryType  String    @map("inquiry_type")   // 문의유형
+  orderId      String?   @map("order_id")       // 연동 주문 (취소/환불, 배송, 교환/반품, 상품 시)
+  orderNumber  String?   @map("order_number")  // 주문번호 (비회원 입력용)
+  orderPhone   String?   @map("order_phone")    // 수령인 연락처 (비회원 조회용)
+  content      String    @map("content")       // 문의내용 (최대 4000)
+  imageUrls    String?   @map("image_urls")    // JSON array of URLs, 최대 3개
+  notifySms    Boolean   @default(false) @map("notify_sms")
+  notifyEmail  Boolean   @default(false) @map("notify_email")
+  phone        String?   @map("phone")
+  email        String?   @map("email")
+  status       String    @default("pending") @map("status")  // pending, answered
+  answer       String?   @map("answer")
+  answeredAt   DateTime? @map("answered_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@map("one_to_one_inquiries")
+}
+
+// ========== 상품 문의 ==========
+
+model ProductInquiry {
+  id         String    @id @default(cuid())
+  productId  String    @map("product_id")
+  userId     String?   @map("user_id")
+  title      String
+  content    String
+  emailReply Boolean   @default(false) @map("email_reply")
+  secret     Boolean   @default(false) @map("secret")
+  answer     String?   @map("answer")
+  answeredAt DateTime? @map("answered_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("product_inquiries")
+}

@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* Typography scale */
+/* 타이틀: text-2xl ~ text-3xl font-semibold */
+/* 서브: text-lg font-medium */
+/* 본문: text-sm ~ text-base */
+
+/* Primary: neutral(gray) 계열 */
+:root {
+  --background: #ffffff;
+  --foreground: #111827; /* gray-900 */
+}
+
+/* Point 컬러 (아주 최소 사용) */
+:root {
+  --cami: #d4c4a8;       /* warm beige */
+  --cami-deep: #8b7355;  /* soft brown */
+  --ivy: #9ca3af;        /* cool gray */
+  --ivy-deep: #4b5563;   /* soft charcoal */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  /* CAMI / IVY point (minimal use) */
+  --color-cami: var(--cami);
+  --color-cami-deep: var(--cami-deep);
+  --color-ivy: var(--ivy);
+  --color-ivy-deep: var(--ivy-deep);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* 컴팩트 헤더: 위에서 슬라이드 인 */
+@keyframes header-slide-down {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.header-slide-down {
+  animation: header-slide-down 0.35s ease-out forwards;
+}

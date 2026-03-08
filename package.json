@@ -1,0 +1,48 @@
+{
+  "name": "cami-ivy",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "PORT=3000 next dev -p 3000",
+    "dev:kill": "(lsof -ti :3000 2>/dev/null; lsof -ti :3001 2>/dev/null) | xargs kill -9 2>/dev/null; true",
+    "build": "next build",
+    "start": "PORT=3000 next start -p 3000",
+    "lint": "eslint",
+    "db:seed": "node prisma/seed.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:remove-cat": "node scripts/remove-cat-data.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@reduxjs/toolkit": "^2.11.2",
+    "axios": "^1.13.5",
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3",
+    "next": "16.1.6",
+    "prisma": "^5.22.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
+    "react-redux": "^9.2.0",
+    "redux-persist": "^6.0.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "msw": "^2.12.10",
+    "tailwindcss": "^4"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  }
+}

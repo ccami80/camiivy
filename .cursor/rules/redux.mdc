@@ -1,0 +1,98 @@
+---
+description: Redux 아키텍처, Redux Toolkit·Persist 패턴, reducer·액션 작성 규칙
+globs: src/redux/**/*.js
+alwaysApply: true
+---
+
+# Redux 구조 및 규칙
+
+## Redux 아키텍처
+
+### 파일 구조
+
+| 구분 | 경로 |
+|------|------|
+| Store 설정 | `src/redux/store.js` |
+| Reducer | `src/redux/reducers/` 디렉터리 |
+| Root reducer | `src/redux/reducers/rootReducer.js` |
+
+## Redux Toolkit 패턴
+
+- 모든 reducer는 **@reduxjs/toolkit**의 **createSlice**로 생성.
+- **영구 저장(persist)이 필요한 상태** → persist 전용 slice(예: `persist`, `persisted` 등)에 모음.
+- **휘발성 상태**(세션·UI·필터 등) → 기능/영역별 slice에 분리.
+
+## Reducer 작성 규칙
+
+### 파일 구조
+
+```javascript
+import { createSlice } from '@reduxjs/toolkit';
+
+const initialState = {
+  // 초기 상태 정의
+};
+
+const sliceName = createSlice({
+  name: 'sliceName',
+  initialState,
+  reducers: {
+    // 액션 정의
+  },
+});
+
+export const { action1, action2 } = sliceName.actions;
+export default sliceName.reducer;
+```
+
+### 네이밍
+
+| 항목 | 규칙 | 예시 |
+|------|------|------|
+| Reducer 파일명 | `{기능/영역}Reducer.js` | `userReducer.js`, `filtersReducer.js`, `cartReducer.js` |
+| Slice name | camelCase | `user`, `filters`, `cart`, `ui` |
+| Action 이름 | camelCase, 동사로 시작 | `setSearchKeyword`, `toggleFilter`, `clearAllFilters` |
+
+### 상태 관리 분리
+
+- **영구 저장 필요** → persist 전용 reducer 파일에 정의하고, 해당 slice를 **persistConfig.whitelist**에 등록.
+- **영구 저장 불필요** → 기능/영역별 reducer에 정의.
+- whitelist에 넣은 slice만 storage(localStorage 등)에 저장됨.
+
+### 액션 네이밍 패턴
+
+| 용도 | 패턴 | 예시 |
+|------|------|------|
+| 값 설정 | `set{PropertyName}` | `setSearchKeyword`, `setBudgetRange` |
+| 토글(단일) | `toggle{PropertyName}` | `toggleFilter`, `toggleSidebar` |
+| 토글(전체) | `toggleAll{PropertyName}` | `toggleAllFilters` |
+| 일부 초기화 | `clear{PropertyName}` | `clearFilters`, `clearBudgetRange` |
+| 전체 초기화 | `clearAll...` | `clearAllFilters` |
+
+### Root Reducer 등록
+
+- 모든 reducer는 **rootReducer.js**의 **combineReducers**에 등록.
+- combineReducers에 넣는 키 이름은 slice의 **name**과 맞추는 것을 권장.
+
+### Immer
+
+- Redux Toolkit은 내부적으로 Immer를 사용하므로 reducer 안에서 **직접 state 수정** 가능.
+- `state.property = value` 형태로 작성해도 됨.
+
+### Payload·상태 구조
+
+- Action payload는 의미가 드러나도록 구조를 명확히 정의.
+- 범위 값은 `{ min, max }` 같은 객체 형태로 통일.
+- "전체 선택" 같은 의미는 빈 배열 `[]`로 표현하는 등, 팀/플랫폼에서 합의한 규칙을 따름.
+
+## Redux Store 설정
+
+- **store.js**에서 **configureStore** 사용.
+- Redux Persist는 **persistConfig**로 storage·whitelist 등을 설정.
+- **serializableCheck**에서 `persist/PERSIST`, `persist/REHYDRATE` 액션은 제외하도록 설정.
+
+## 사용 패턴
+
+- **useSelector**로 상태 읽기.
+- **useDispatch**로 액션 dispatch.
+- Action creator는 각 slice 파일에서 **export**하여 컴포넌트·다른 모듈에서 사용.

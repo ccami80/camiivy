@@ -1,0 +1,91 @@
+---
+description: 디렉터리 구조, 라우팅·레이아웃, API·상태 관리 설계
+globs: **/*
+alwaysApply: true
+---
+
+# 디렉터리 구조
+
+```
+{project-root}/
+├── .cursor/rules/          # Cursor AI 규칙
+├── public/                 # 정적 파일 (이미지, 아이콘)
+├── src/
+│   ├── app/                # Next.js App Router
+│   │   ├── (ui)/           # Route Group (페이지·도메인 라우트 전부 여기 배치)
+│   │   │   ├── (website)/  # 쇼핑/메인 도메인 (/, /login, /products, ...)
+│   │   │   ├── admin/     # 관리자 (/admin, /admin/login, ...)
+│   │   │   ├── partner/   # 입점업체 (/partner, /partner/login, ...)
+│   │   │   ├── (user)/    # 마이페이지·회원 (/my, /recent, ...)
+│   │   ├── api/            # 자사 백엔드 API (Prisma·DB 연동)
+│   │   ├── api-etc/        # 타사 API (외부 서비스 프록시·웹훅·래퍼)
+│   │   ├── api-local/      # 프론트 자체해결 API (DB·타사 없이 프론트에서 처리)
+│   │   ├── api-mock/       # 목업 API (mock 데이터 전용, src/mocks/data.js 공유)
+│   │   ├── layout.js, page.js, providers.js, globals.css
+│   ├── components/
+│   │   ├── ui/             # 1. 외부 UI 라이브러리 (shadcn/ui)
+│   │   ├── atom/           # 2. 원자 단위 (가장 작은 단위)
+│   │   ├── molecule/       # 3. 분자 단위 (atom 조합)
+│   │   ├── organism/       # 4. 유기체 단위 (molecule 조합)
+│   │   ├── page/           # 5. 페이지 레벨 (전체 페이지 구성)
+│   │   ├── helper/         # 6. 헬퍼/유틸리티 (기능 중심)
+│   │   └── etc/            # 7. 기타 (분류 어려운 것들)
+│   ├── hooks/              # useAuth, useModal, use-mobile 등
+│   ├── redux/
+│   │   ├── store.js
+│   │   └── reducers/       # rootReducer, common, commonPersist, 도메인별
+│   ├── utils/
+│   │   ├── apis.js         # 단일 API 클라이언트 (필수 사용)
+│   │   └── format/         # 포맷 유틸 등
+│   └── lib/
+│       └── utils.js        # shadcn용 cn() 등
+├── docs/                   # speckit.constitution, speckit.plan 등
+├── next.config.mjs
+├── jsconfig.json           # paths: "@/*" -> "./src/*"
+├── components.json         # shadcn
+└── package.json
+```
+
+# 컴포넌트 디렉터리 (src/components/)
+
+| 순서 | 폴더 | 용도 |
+|------|------|------|
+| 1 | **ui/** | 외부 UI 라이브러리 컴포넌트 (shadcn/ui) |
+| 2 | **atom/** | 원자 단위 컴포넌트 (가장 작은 단위) |
+| 3 | **molecule/** | 분자 단위 컴포넌트 (atom 조합) |
+| 4 | **organism/** | 유기체 단위 컴포넌트 (molecule 조합) |
+| 5 | **page/** | 페이지 레벨 컴포넌트 (전체 페이지 구성) |
+| 6 | **helper/** | 헬퍼/유틸리티 컴포넌트 (기능 중심, Guard, ProtectedRoute 등) |
+| 7 | **etc/** | 기타 컴포넌트 (분류 어려운 것들) |
+
+# 라우팅·레이아웃
+
+- **Route Group (ui)**: (ui) 아래에 페이지·도메인 라우트 배치. (website), admin, partner, (user) 네 가지.
+- **도메인별 레이아웃**: (website)/layout.js, admin/layout.js, partner/layout.js, (user) 내 my·recent 각 layout에서 Topbar, Header, Footer 등 공통 처리. 필요 시 persist의 activeDomain과 연동.
+- **프로필**: profile-basic(일반 회원), profile-business(사업자). 레이아웃은 SideMenu 등.
+- **인증**: (website)/login, (website)/signup, admin/login, partner/login 등 도메인별 경로.
+
+# API 설계
+
+## 클라이언트 (브라우저)
+
+- **진입점**: `src/utils/apis.js`의 `api` 객체.
+- **메서드**: `api.get()`, `api.post()`, `api.patch()`, `api.delete()`.
+- **인자**: 객체 `{ uri?, path, params?, data? }`, 두 번째 인자로 옵션(timeout, headers 등).
+- **기본**: Content-Type application/json, withCredentials: true.
+- **에러**: handleError에서 401/403/404/500 등 처리 후 Promise.reject.
+
+## Next.js API Routes (서버)
+
+- **자사 백엔드 API**: `src/app/api/` — 자사 백엔드(Prisma·DB 연동). 배포·운영 시 사용.
+- **타사 API**: `src/app/api-etc/` — 타사(외부) API 연동용. 프록시·웹훅·외부 서비스 래퍼 등. 경로는 `/api-etc/...`.
+- **프론트 자체해결 API**: `src/app/api-local/` — DB·타사 없이 프론트에서 해결하는 API. 경로는 `/api-local/...`.
+- **목업 API**: `src/app/api-mock/` — 목업 API들이 들어가는 폴더. DB 없이 고정 데이터 반환. mock 데이터는 `src/mocks/data.js`에서 관리하며 MSW와 공유.
+- api/auth/* (로그인, 로그아웃), api/auth/status 등. 실제 경로는 프로젝트별 정의.
+- **백엔드 연동**: Base URL은 NEXT_PUBLIC_BACKEND_URL. 인증 경로는 백엔드 규격 따름.
+
+# 상태 관리
+
+- **Redux**: configureStore, persistReducer (storage: localStorage, whitelist: ['commonPersist']). 미들웨어에서 persist/PERSIST, persist/REHYDRATE 무시.
+- **Reducer 예시**: common, commonPersist(activeDomain, selectedProfileType), 도메인별, search, signup.
+- **React Query**: QueryClientProvider는 providers.js 루트 적용. queryKey 예: ['auth', 'profile']. invalidate로 최신 반영.
